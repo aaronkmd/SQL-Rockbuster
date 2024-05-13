@@ -1,1 +1,232 @@
+# 1. FILM REVENUE
+SELECT
+    Film.title,
+    SUM(Payment.amount) AS total_revenue
+FROM
+    payment Payment
+    JOIN rental Rental ON Payment.rental_id = Rental.rental_id
+    JOIN inventory Inventory ON Rental.inventory_id = Inventory.inventory_id
+    JOIN film Film ON Inventory.film_id = Film.film_id
+GROUP BY
+    Film.title
+ORDER BY
+    total_revenue DESC;
 
+
+
+#2. DESCRIPTIVE STATS FOR FILM TABLE NUMERICAL COLUMNS
+SELECT
+  MIN(film_id) AS min_film_id,
+  MAX(film_id) AS max_film_id,
+  AVG(film_id) AS avg_film_id,
+
+  MIN(release_year) AS min_release_year,
+  MAX(release_year) AS max_release_year,
+  AVG(release_year) AS avg_release_year,
+
+  MIN(language_id) AS min_language_id,
+  MAX(language_id) AS max_language_id,
+  AVG(language_id) AS avg_language_id,
+
+  MIN(rental_duration) AS min_rental_duration,
+  MAX(rental_duration) AS max_rental_duration,
+  AVG(rental_duration) AS avg_rental_duration,
+
+  MIN(rental_rate) AS min_rental_rate,
+  MAX(rental_rate) AS max_rental_rate,
+  AVG(rental_rate) AS avg_rental_rate,
+
+  MIN(length) AS min_length,
+  MAX(length) AS max_length,
+  AVG(length) AS avg_length,
+
+  MIN(replacement_cost) AS min_replacement_cost,
+  MAX(replacement_cost) AS max_replacement_cost,
+  AVG(replacement_cost) AS avg_replacement_cost
+
+FROM film;
+
+
+
+# 3. DESCRIPTIVE STATS FOR FILM TABLE NON-NUMERICAL COLUMNS
+SELECT
+  MODE() WITHIN GROUP (ORDER BY title) AS mode_title,
+  MODE() WITHIN GROUP (ORDER BY description) AS mode_description,
+  MODE() WITHIN GROUP (ORDER BY rating) AS mode_rating,
+  MODE() WITHIN GROUP (ORDER BY special_features) AS mode_special_features,
+  MODE() WITHIN GROUP (ORDER BY fulltext) AS mode_fulltext
+FROM film;
+
+
+
+# 4. DESCRIPTIVE STATS FOR CUSTOMER TABLE NUMERICAL COLUMNS
+SELECT
+  MIN(customer_id) AS min_customer_id,
+  MAX(customer_id) AS max_customer_id,
+  AVG(customer_id) AS avg_customer_id,
+
+  MIN(store_id) AS min_store_id,
+  MAX(store_id) AS max_store_id,
+  AVG(store_id) AS avg_store_id,
+
+  MIN(address_id) AS min_address_id,
+  MAX(address_id) AS max_address_id,
+  AVG(address_id) AS avg_address_id,
+
+  MIN(active) AS min_active,
+  MAX(active) AS max_active,
+  AVG(active) AS avg_active
+
+FROM customer;
+
+
+
+# 5. DESCRIPTIVE STATS FOR CUSTOMER TABLE NON-NUMERICAL COLUMNS
+SELECT
+  MODE() WITHIN GROUP (ORDER BY first_name) AS mode_first_name,
+  MODE() WITHIN GROUP (ORDER BY last_name) AS mode_last_name,
+  MODE() WITHIN GROUP (ORDER BY email) AS mode_email,
+  MODE() WITHIN GROUP (ORDER BY activebool) AS mode_activebool
+FROM customer;
+
+
+
+# 6. TOP COUNTRIES by Revenue
+SELECT
+    Country.country,
+    SUM(Payment.amount) AS rental_revenue
+FROM
+    country Country
+JOIN
+    city City ON Country.country_id = City.country_id
+JOIN
+    address Address ON City.city_id = Address.city_id
+JOIN
+    customer Customer ON Address.address_id = Customer.address_id
+JOIN
+    payment Payment ON Customer.customer_id = Payment.customer_id
+GROUP BY
+    Country.country
+ORDER BY
+    rental_revenue DESC;
+
+
+
+# 7. TOP COUNTRIES by Customer Count
+SELECT
+    Country.country,
+    COUNT(DISTINCT Customer.customer_id) AS customer_count
+FROM
+    country Country
+JOIN
+    city City ON Country.country_id = City.country_id
+JOIN
+    address Address ON City.city_id = Address.city_id
+JOIN
+    customer Customer ON Address.address_id = Customer.address_id
+GROUP BY
+    Country.country
+ORDER BY
+    customer_count DESC;
+
+
+
+# 8. TOP 10 CITIES
+WITH Top_Countries AS (
+    SELECT
+        Country.country
+    FROM
+        customer Customer
+    JOIN
+        address Address ON Customer.address_id = Address.address_id
+    JOIN
+        city City ON Address.city_id = City.city_id
+    JOIN
+        country Country ON City.country_id = Country.country_id
+    GROUP BY
+        Country.country
+    ORDER BY
+        COUNT(Customer.customer_id) DESC
+    LIMIT 10)
+SELECT
+    Country.country,
+    City.city,
+    COUNT(Customer.customer_id) AS number_of_customers
+FROM
+    customer Customer
+JOIN
+    address Address ON Customer.address_id = Address.address_id
+JOIN
+    city City ON Address.city_id = City.city_id
+JOIN
+    country Country ON City.country_id = Country.country_id
+WHERE
+    Country.country IN (SELECT country FROM Top_Countries)
+GROUP BY
+    Country.country, City.city
+ORDER BY
+    COUNT(Customer.customer_id) DESC
+LIMIT 10;
+
+
+
+# 9. TOP 10 CUSTOMERS by Amount Paid
+WITH Top_Countries AS (
+    SELECT
+        Country.country
+    FROM
+        customer Customer
+    JOIN
+        address Address ON Customer.address_id = Address.address_id
+    JOIN
+        city City ON Address.city_id = City.city_id
+    JOIN
+        country Country ON City.country_id = Country.country_id
+    GROUP BY
+        Country.country
+    ORDER BY
+        COUNT(Customer.customer_id) DESC
+    LIMIT 10),
+Top_Cities AS (
+    SELECT
+        City.city,
+        Country.country
+    FROM
+        customer Customer
+    JOIN
+        address Address ON Customer.address_id = Address.address_id
+    JOIN
+        city City ON Address.city_id = City.city_id
+    JOIN
+        country Country ON City.country_id = Country.country_id
+    WHERE
+        Country.country IN (SELECT country FROM Top_Countries)
+    GROUP BY
+        Country.country, City.city
+    ORDER BY
+        COUNT(Customer.customer_id) DESC
+    LIMIT 10)
+SELECT
+    Customer.customer_id,
+    Customer.first_name,
+    Customer.last_name,
+    Country.country,
+    City.city,
+    SUM(Payment.amount) AS "Total Amount Paid"
+FROM
+    payment Payment
+JOIN
+    customer Customer ON Payment.customer_id = Customer.customer_id
+JOIN
+    address Address ON Customer.address_id = Address.address_id
+JOIN
+    city City ON Address.city_id = City.city_id
+JOIN
+    country Country ON City.country_id = Country.country_id
+JOIN
+    Top_Cities ON City.city = Top_Cities.city AND Country.country = Top_Cities.country
+GROUP BY
+    Customer.customer_id, Customer.first_name, Customer.last_name, Country.country, City.city
+ORDER BY
+    "Total Amount Paid" DESC
+LIMIT 10;
